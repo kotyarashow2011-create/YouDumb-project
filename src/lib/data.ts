@@ -319,7 +319,7 @@ class DataManager {
     return this.subscriptions.some(s => s.subscriberId === subscriberId && s.channelId === channelId)
   }
 
-  subscribe(subscriberId: string, channelId: string) {
+  subscribeToChannel(subscriberId: string, channelId: string) {
     if (this.isSubscribed(subscriberId, channelId)) return
 
     const subscription: Subscription = {
@@ -341,7 +341,7 @@ class DataManager {
     this.notifyListeners()
   }
 
-  unsubscribe(subscriberId: string, channelId: string) {
+  unsubscribeFromChannel(subscriberId: string, channelId: string) {
     const index = this.subscriptions.findIndex(s => s.subscriberId === subscriberId && s.channelId === channelId)
     if (index === -1) return
 
