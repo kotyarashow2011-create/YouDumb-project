@@ -76,6 +76,7 @@ class DataManager {
   private watchHistory: { userId: string, videoId: string, watchedAt: Date }[] = []
   private likedVideos: { userId: string, videoId: string, likedAt: Date }[] = []
   private listeners: (() => void)[] = []
+  private currentUserId?: string
 
   static getInstance(): DataManager {
     if (!DataManager.instance) {
@@ -117,8 +118,22 @@ class DataManager {
       }
     }
 
-    // Загружаем персональные данные пользователя (лайки, история)
-    const personalStored = localStorage.getItem('youdumb_personal_data')
+    // Персональные данные загружаются отдельно для каждого пользователя
+    this.loadPersonalData()
+  }
+
+  private loadPersonalData(userId?: string) {
+    if (!userId) {
+      // Если пользователь не указан, очищаем персональные данные
+      this.userLikes = new Set()
+      this.userDislikes = new Set()
+      this.watchHistory = []
+      this.likedVideos = []
+      return
+    }
+
+    // Загружаем персональные данные конкретного пользователя
+    const personalStored = localStorage.getItem(`youdumb_personal_data_${userId}`)
     if (personalStored) {
       try {
         const parsed = JSON.parse(personalStored)
@@ -135,6 +150,12 @@ class DataManager {
       } catch (e) {
         console.error('Error loading personal data:', e)
       }
+    } else {
+      // Если данных нет, инициализируем пустыми
+      this.userLikes = new Set()
+      this.userDislikes = new Set()
+      this.watchHistory = []
+      this.likedVideos = []
     }
   }
 
@@ -147,15 +168,32 @@ class DataManager {
       subscriptions: this.subscriptions
     }
     localStorage.setItem('youdumb_global_data', JSON.stringify(globalData))
+  }
 
-    // Сохраняем персональные данные пользователя (лайки, история)
+  private savePersonalData(userId?: string) {
+    const targetUserId = userId || this.currentUserId
+    if (!targetUserId) return
+    
+    // Сохраняем персональные данные конкретного пользователя
     const personalData = {
       userLikes: Array.from(this.userLikes),
       userDislikes: Array.from(this.userDislikes),
       watchHistory: this.watchHistory,
       likedVideos: this.likedVideos
     }
-    localStorage.setItem('youdumb_personal_data', JSON.stringify(personalData))
+    localStorage.setItem(`youdumb_personal_data_${targetUserId}`, JSON.stringify(personalData))
+  }
+
+  // Метод для переключения пользователя
+  switchUser(userId?: string) {
+    this.currentUserId = userId
+    this.loadPersonalData(userId)
+    this.notifyListeners()
+  }
+
+  // Получить текущего пользователя
+  getCurrentUserId(): string | undefined {
+    return this.currentUserId
   }
 
   private notifyListeners() {
@@ -242,7 +280,7 @@ class DataManager {
     if (video) {
       video.viewCount++
       
-      // Добавляем в историю просмотров
+      // Добавляем в историю просмотров только если пользователь авторизован
       if (userId) {
         // Удаляем предыдущую запись этого видео для этого пользователя
         this.watchHistory = this.watchHistory.filter(w => !(w.userId === userId && w.videoId === videoId))
@@ -260,8 +298,12 @@ class DataManager {
           const toRemove = userHistory.sort((a, b) => a.watchedAt.getTime() - b.watchedAt.getTime()).slice(0, userHistory.length - 1000)
           this.watchHistory = this.watchHistory.filter(w => !toRemove.some(r => r.userId === w.userId && r.videoId === w.videoId && r.watchedAt.getTime() === w.watchedAt.getTime()))
         }
+        
+        // Сохраняем персональные данные пользователя
+        this.savePersonalData(userId)
       }
       
+      // Сохраняем глобальные данные (счетчик просмотров)
       this.saveData()
       this.notifyListeners()
     }
@@ -338,7 +380,9 @@ class DataManager {
       }
     }
     
+    // Сохраняем и глобальные данные (счетчики лайков) и персональные (лайки пользователя)
     this.saveData()
+    this.savePersonalData(userId)
     this.notifyListeners()
   }
 
@@ -361,10 +405,15 @@ class DataManager {
       if (this.userLikes.has(likeKey)) {
         this.userLikes.delete(likeKey)
         video.likeCount--
+        
+        // Удаляем из понравившихся
+        this.likedVideos = this.likedVideos.filter(l => !(l.userId === userId && l.videoId === videoId))
       }
     }
     
+    // Сохраняем и глобальные данные (счетчики дизлайков) и персональные (дизлайки пользователя)
     this.saveData()
+    this.savePersonalData(userId)
     this.notifyListeners()
   }
 
@@ -636,9 +685,12 @@ class DataManager {
       .filter(Boolean) as Video[]
   }
 
-  clearWatchHistory(userId: string) {
-    this.watchHistory = this.watchHistory.filter(w => w.userId !== userId)
-    this.saveData()
+  clearWatchHistory(userId?: string) {
+    const targetUserId = userId || this.currentUserId
+    if (!targetUserId) return
+    
+    this.watchHistory = this.watchHistory.filter(w => w.userId !== targetUserId)
+    this.savePersonalData(targetUserId)
     this.notifyListeners()
   }
 }
