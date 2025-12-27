@@ -3,102 +3,51 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { ThumbsUp, ThumbsDown, Reply, MoreVertical } from 'lucide-react'
-
-interface Comment {
-  id: string
-  author: {
-    name: string
-    avatar: string
-    verified: boolean
-  }
-  content: string
-  likes: number
-  dislikes: number
-  timestamp: string
-  replies?: Comment[]
-}
-
-const mockComments: Comment[] = [
-  {
-    id: '1',
-    author: {
-      name: 'Анна Петрова',
-      avatar: '/api/placeholder/32/32',
-      verified: false
-    },
-    content: 'Отличное видео! Очень полезная информация, спасибо за подробный разбор.',
-    likes: 24,
-    dislikes: 1,
-    timestamp: '2 часа назад',
-    replies: [
-      {
-        id: '1-1',
-        author: {
-          name: 'Блогер Иван',
-          avatar: '/api/placeholder/32/32',
-          verified: true
-        },
-        content: 'Спасибо за отзыв! Рад, что видео оказалось полезным.',
-        likes: 8,
-        dislikes: 0,
-        timestamp: '1 час назад'
-      }
-    ]
-  },
-  {
-    id: '2',
-    author: {
-      name: 'Михаил Сидоров',
-      avatar: '/api/placeholder/32/32',
-      verified: false
-    },
-    content: 'Можете сделать видео про монетизацию канала? Очень интересная тема.',
-    likes: 15,
-    dislikes: 0,
-    timestamp: '4 часа назад'
-  },
-  {
-    id: '3',
-    author: {
-      name: 'Елена Козлова',
-      avatar: '/api/placeholder/32/32',
-      verified: false
-    },
-    content: 'Начала делать свой канал по вашим советам. Уже есть первые результаты!',
-    likes: 31,
-    dislikes: 2,
-    timestamp: '1 день назад'
-  }
-]
+import { useComments } from '@/hooks/useData'
+import { useAuth } from '@/hooks/useAuth'
+import { Comment } from '@/lib/data'
+import { formatUploadDate } from '@/lib/utils'
 
 interface CommentSectionProps {
   videoId: string
 }
 
 export function CommentSection({ videoId }: CommentSectionProps) {
-  const [comments, setComments] = useState(mockComments)
+  const { comments, loading, addComment } = useComments(videoId)
+  const { user, isAuthenticated } = useAuth()
   const [newComment, setNewComment] = useState('')
   const [sortBy, setSortBy] = useState('top')
 
   const handleSubmitComment = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newComment.trim()) return
+    if (!newComment.trim() || !isAuthenticated || !user) return
 
-    const comment: Comment = {
-      id: Date.now().toString(),
-      author: {
-        name: 'Вы',
-        avatar: '/api/placeholder/32/32',
-        verified: false
-      },
-      content: newComment,
-      likes: 0,
-      dislikes: 0,
-      timestamp: 'только что'
-    }
-
-    setComments([comment, ...comments])
+    addComment(newComment, user.id)
     setNewComment('')
+  }
+
+  if (loading) {
+    return (
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="h-6 bg-gray-700 rounded w-32 animate-pulse"></div>
+          <div className="h-8 bg-gray-700 rounded w-24 animate-pulse"></div>
+        </div>
+        
+        <div className="space-y-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex space-x-3 animate-pulse">
+              <div className="w-8 h-8 bg-gray-700 rounded-full"></div>
+              <div className="flex-1 space-y-2">
+                <div className="h-4 bg-gray-700 rounded w-1/4"></div>
+                <div className="h-4 bg-gray-700 rounded w-3/4"></div>
+                <div className="h-3 bg-gray-700 rounded w-1/3"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -120,54 +69,91 @@ export function CommentSection({ videoId }: CommentSectionProps) {
       </div>
 
       {/* Add Comment */}
-      <form onSubmit={handleSubmitComment} className="mb-8">
-        <div className="flex space-x-3">
-          <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center">
-            <span className="text-white text-sm font-medium">Вы</span>
-          </div>
-          
-          <div className="flex-1">
-            <textarea
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Добавьте комментарий..."
-              className="w-full bg-transparent border-b border-gray-600 text-white placeholder-gray-400 py-2 resize-none focus:outline-none focus:border-accent"
-              rows={1}
-              onFocus={(e) => {
-                e.target.rows = 3
-              }}
-              onBlur={(e) => {
-                if (!newComment) e.target.rows = 1
-              }}
-            />
+      {isAuthenticated ? (
+        <form onSubmit={handleSubmitComment} className="mb-8">
+          <div className="flex space-x-3">
+            <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0">
+              {user?.avatarUrl ? (
+                <Image
+                  src={user.avatarUrl}
+                  alt={user.displayName}
+                  width={40}
+                  height={40}
+                  className="rounded-full"
+                />
+              ) : (
+                <span className="text-white text-sm font-medium">
+                  {user?.displayName.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
             
-            {newComment && (
-              <div className="flex justify-end space-x-2 mt-3">
-                <button
-                  type="button"
-                  onClick={() => setNewComment('')}
-                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary"
-                >
-                  Комментировать
-                </button>
-              </div>
-            )}
+            <div className="flex-1">
+              <textarea
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Добавьте комментарий..."
+                className="w-full bg-transparent border-b border-gray-600 text-white placeholder-gray-400 py-2 resize-none focus:outline-none focus:border-accent"
+                rows={1}
+                onFocus={(e) => {
+                  e.target.rows = 3
+                }}
+                onBlur={(e) => {
+                  if (!newComment) e.target.rows = 1
+                }}
+              />
+              
+              {newComment && (
+                <div className="flex justify-end space-x-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setNewComment('')}
+                    className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                  >
+                    Комментировать
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
+        </form>
+      ) : (
+        <div className="mb-8 p-4 bg-surface rounded-lg text-center">
+          <p className="text-gray-400 mb-4">
+            Войдите в аккаунт, чтобы оставлять комментарии
+          </p>
+          <button
+            onClick={() => window.location.href = '/auth/login'}
+            className="btn-primary"
+          >
+            Войти
+          </button>
         </div>
-      </form>
+      )}
 
       {/* Comments List */}
-      <div className="space-y-6">
-        {comments.map((comment) => (
-          <CommentItem key={comment.id} comment={comment} />
-        ))}
-      </div>
+      {comments.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-gray-400 text-lg mb-2">
+            Пока нет комментариев
+          </p>
+          <p className="text-gray-500">
+            Станьте первым, кто оставит комментарий!
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {comments.map((comment) => (
+            <CommentItem key={comment.id} comment={comment} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -180,21 +166,29 @@ function CommentItem({ comment }: { comment: Comment }) {
   return (
     <div className="space-y-4">
       <div className="flex space-x-3">
-        <Image
-          src={comment.author.avatar}
-          alt={comment.author.name}
-          width={32}
-          height={32}
-          className="rounded-full"
-        />
+        <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0">
+          {comment.user.avatarUrl ? (
+            <Image
+              src={comment.user.avatarUrl}
+              alt={comment.user.displayName}
+              width={32}
+              height={32}
+              className="rounded-full"
+            />
+          ) : (
+            <span className="text-white text-xs font-medium">
+              {comment.user.displayName.charAt(0).toUpperCase()}
+            </span>
+          )}
+        </div>
         
         <div className="flex-1">
           <div className="flex items-center space-x-2 mb-1">
             <span className="font-medium text-white text-sm">
-              {comment.author.name}
+              {comment.user.displayName}
             </span>
             <span className="text-gray-400 text-xs">
-              {comment.timestamp}
+              {formatUploadDate(comment.createdAt)}
             </span>
           </div>
           
@@ -210,7 +204,7 @@ function CommentItem({ comment }: { comment: Comment }) {
               }`}
             >
               <ThumbsUp className="w-4 h-4" />
-              <span>{comment.likes}</span>
+              <span>{comment.likeCount}</span>
             </button>
             
             <button

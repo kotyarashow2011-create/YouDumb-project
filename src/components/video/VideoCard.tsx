@@ -2,37 +2,18 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { Play, MoreVertical, CheckCircle } from 'lucide-react'
+import { Play, MoreVertical, CheckCircle, Radio } from 'lucide-react'
 import { useState } from 'react'
+import { formatViews, formatUploadDate, formatDuration } from '@/lib/utils'
+import { Video } from '@/lib/data'
 
 interface VideoCardProps {
-  video: {
-    id: string
-    title: string
-    thumbnail: string
-    duration: string
-    views: number
-    uploadDate: string
-    channel: {
-      name: string
-      avatar: string
-      verified: boolean
-    }
-  }
+  video: Video
 }
 
 export function VideoCard({ video }: VideoCardProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [imageError, setImageError] = useState(false)
-
-  const formatViews = (views: number) => {
-    if (views >= 1000000) {
-      return `${(views / 1000000).toFixed(1)}М`
-    } else if (views >= 1000) {
-      return `${(views / 1000).toFixed(0)}К`
-    }
-    return views.toString()
-  }
 
   return (
     <div 
@@ -45,7 +26,7 @@ export function VideoCard({ video }: VideoCardProps) {
         <div className="relative aspect-video bg-gray-800 rounded-lg overflow-hidden mb-3">
           {!imageError ? (
             <Image
-              src={video.thumbnail}
+              src={video.thumbnailUrl}
               alt={video.title}
               fill
               className="object-cover transition-transform duration-200 group-hover:scale-105"
@@ -57,10 +38,20 @@ export function VideoCard({ video }: VideoCardProps) {
             </div>
           )}
           
+          {/* Live indicator */}
+          {video.isLive && (
+            <div className="absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded flex items-center space-x-1">
+              <Radio className="w-3 h-3" />
+              <span>LIVE</span>
+            </div>
+          )}
+          
           {/* Duration */}
-          <div className="absolute bottom-2 right-2 bg-black bg-opacity-80 text-white text-xs px-2 py-1 rounded">
-            {video.duration}
-          </div>
+          {!video.isLive && (
+            <div className="absolute bottom-2 right-2 bg-black bg-opacity-80 text-white text-xs px-2 py-1 rounded">
+              {formatDuration(video.duration)}
+            </div>
+          )}
           
           {/* Hover Play Button */}
           {isHovered && (
@@ -76,12 +67,12 @@ export function VideoCard({ video }: VideoCardProps) {
       {/* Video Info */}
       <div className="flex space-x-3">
         {/* Channel Avatar */}
-        <Link href={`/channel/${video.channel.name}`}>
+        <Link href={`/channel/${video.user.id}`}>
           <div className="w-9 h-9 bg-gray-600 rounded-full overflow-hidden flex-shrink-0">
-            {!imageError ? (
+            {video.user.avatarUrl && !imageError ? (
               <Image
-                src={video.channel.avatar}
-                alt={video.channel.name}
+                src={video.user.avatarUrl}
+                alt={video.user.displayName}
                 width={36}
                 height={36}
                 className="object-cover"
@@ -90,7 +81,7 @@ export function VideoCard({ video }: VideoCardProps) {
             ) : (
               <div className="w-full h-full bg-gray-600 flex items-center justify-center">
                 <span className="text-white text-sm font-medium">
-                  {video.channel.name.charAt(0)}
+                  {video.user.displayName.charAt(0).toUpperCase()}
                 </span>
               </div>
             )}
@@ -105,19 +96,19 @@ export function VideoCard({ video }: VideoCardProps) {
             </h3>
           </Link>
           
-          <Link href={`/channel/${video.channel.name}`}>
+          <Link href={`/channel/${video.user.id}`}>
             <div className="flex items-center space-x-1 mb-1">
               <span className="text-gray-400 text-xs hover:text-white transition-colors">
-                {video.channel.name}
+                {video.user.displayName}
               </span>
-              {video.channel.verified && (
+              {video.user.isVerified && (
                 <CheckCircle className="w-3 h-3 text-accent" />
               )}
             </div>
           </Link>
           
           <div className="text-gray-400 text-xs">
-            {formatViews(video.views)} просмотров • {video.uploadDate}
+            {formatViews(video.viewCount)} просмотров • {formatUploadDate(video.uploadDate)}
           </div>
         </div>
 

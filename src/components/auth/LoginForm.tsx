@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 
 export function LoginForm() {
   const [formData, setFormData] = useState({
@@ -13,6 +14,7 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const { login } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,16 +22,15 @@ export function LoginForm() {
     setError('')
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const result = await login(formData.email, formData.password)
       
-      // Here you would typically make an API call to authenticate
-      console.log('Login attempt:', formData)
-      
-      // Redirect to home page on success
-      router.push('/')
+      if (result.success) {
+        router.push('/')
+      } else {
+        setError(result.error || 'Ошибка входа')
+      }
     } catch (err) {
-      setError('Неверный email или пароль')
+      setError('Произошла ошибка. Попробуйте еще раз.')
     } finally {
       setIsLoading(false)
     }
@@ -119,6 +120,11 @@ export function LoginForm() {
       >
         {isLoading ? 'Вход...' : 'Войти'}
       </button>
+
+      {/* Demo Account Info */}
+      <div className="bg-blue-900/20 border border-blue-500 text-blue-400 px-4 py-3 rounded-lg text-sm">
+        <strong>Демо-режим:</strong> Введите любой email и пароль длиной от 6 символов для входа
+      </div>
 
       {/* Social Login */}
       <div className="mt-6">

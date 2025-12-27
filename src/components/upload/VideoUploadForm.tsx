@@ -1,7 +1,10 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Upload, X, Play, Eye, EyeOff } from 'lucide-react'
+import { Upload, X, Play, Eye, EyeOff, Radio } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
+import { dataManager } from '@/lib/data'
+import { useRouter } from 'next/navigation'
 
 interface VideoData {
   title: string
@@ -9,6 +12,7 @@ interface VideoData {
   tags: string[]
   visibility: 'public' | 'unlisted' | 'private'
   category: string
+  isLive: boolean
 }
 
 export function VideoUploadForm() {
@@ -20,13 +24,35 @@ export function VideoUploadForm() {
     description: '',
     tags: [],
     visibility: 'public',
-    category: ''
+    category: '',
+    isLive: false
   })
   const [tagInput, setTagInput] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { user, isAuthenticated } = useAuth()
+  const router = useRouter()
+
+  if (!isAuthenticated) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-bold text-white mb-4">
+          Требуется авторизация
+        </h2>
+        <p className="text-gray-400 mb-6">
+          Войдите в аккаунт, чтобы загружать видео
+        </p>
+        <button
+          onClick={() => router.push('/auth/login')}
+          className="btn-primary"
+        >
+          Войти в аккаунт
+        </button>
+      </div>
+    )
+  }
 
   const handleFileSelect = (selectedFile: File) => {
-    if (selectedFile && selectedFile.type.startsWith('video/')) {
+    if (selectedFile && (selectedFile.type.startsWith('video/') || videoData.isLive)) {
       setFile(selectedFile)
       if (!videoData.title) {
         setVideoData(prev => ({
@@ -68,7 +94,7 @@ export function VideoUploadForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!file) return
+    if (!user || (!file && !videoData.isLive) || !videoData.title) return
 
     setIsUploading(true)
     
@@ -77,20 +103,85 @@ export function VideoUploadForm() {
       setUploadProgress(prev => {
         if (prev >= 100) {
           clearInterval(interval)
+          
+          // Create the video
+          const newVideo = dataManager.addVideo({
+            title: videoData.title,
+            description: videoData.description,
+            thumbnailUrl: videoData.isLive 
+              ? 'https://via.placeholder.com/320x180/f97316/000000?text=LIVE'
+              : 'https://via.placeholder.com/320x180/1a1a1a/ffffff?text=VIDEO',
+            videoUrl: videoData.isLive 
+              ? 'https://example.com/live-stream'
+              : 'https://example.com/video.mp4',
+            duration: videoData.isLive ? 0 : Math.floor(Math.random() * 3600) + 60,
+            userId: user.id,
+            user: {
+              id: user.id,
+              username: user.username,
+              displayName: user.displayName,
+              avatarUrl: user.avatarUrl,
+              isVerified: user.isVerified,
+              subscriberCount: user.subscriberCount
+            },
+            tags: videoData.tags,
+            status: 'published',
+            category: videoData.category,
+            isLive: videoData.isLive
+          })
+
           setIsUploading(false)
-          // Here you would typically redirect to the video page
+          router.push(`/watch/${newVideo.id}`)
           return 100
         }
         return prev + 10
       })
-    }, 500)
+    }, 300)
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
+      {/* Live Stream Toggle */}
+      <div className="bg-surface rounded-lg p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-white font-medium mb-2">Тип контента</h3>
+            <p className="text-gray-400 text-sm">
+              Выберите, что вы хотите создать
+            </p>
+          </div>
+          <div className="flex space-x-4">
+            <button
+              type="button"
+              onClick={() => setVideoData(prev => ({ ...prev, isLive: false }))}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                !videoData.isLive 
+                  ? 'bg-accent text-black' 
+                  : 'bg-gray-700 text-white hover:bg-gray-600'
+              }`}
+            >
+              <Upload className="w-4 h-4 inline mr-2" />
+              Видео
+            </button>
+            <button
+              type="button"
+              onClick={() => setVideoData(prev => ({ ...prev, isLive: true }))}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                videoData.isLive 
+                  ? 'bg-red-500 text-white' 
+                  : 'bg-gray-700 text-white hover:bg-gray-600'
+              }`}
+            >
+              <Radio className="w-4 h-4 inline mr-2" />
+              Стрим
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* File Upload Area */}
       <div className="bg-surface rounded-lg p-8">
-        {!file ? (
+        {!file && !videoData.isLive ? (
           <div
             onDrop={handleDrop}
             onDragOver={handleDragOver}
@@ -115,6 +206,16 @@ export function VideoUploadForm() {
               onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
               className="hidden"
             />
+          </div>
+        ) : videoData.isLive ? (
+          <div className="text-center py-8">
+            <Radio className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">
+              Прямая трансляция
+            </h3>
+            <p className="text-gray-400">
+              Настройте детали трансляции ниже
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -159,21 +260,21 @@ export function VideoUploadForm() {
       </div>
 
       {/* Video Details */}
-      {file && (
+      {(file || videoData.isLive) && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column */}
           <div className="space-y-6">
             {/* Title */}
             <div>
               <label className="block text-white font-medium mb-2">
-                Название видео *
+                {videoData.isLive ? 'Название трансляции' : 'Название видео'} *
               </label>
               <input
                 type="text"
                 value={videoData.title}
                 onChange={(e) => setVideoData(prev => ({ ...prev, title: e.target.value }))}
                 className="input-primary w-full"
-                placeholder="Введите название видео"
+                placeholder={videoData.isLive ? 'Введите название трансляции' : 'Введите название видео'}
                 required
               />
             </div>
@@ -187,7 +288,7 @@ export function VideoUploadForm() {
                 value={videoData.description}
                 onChange={(e) => setVideoData(prev => ({ ...prev, description: e.target.value }))}
                 className="input-primary w-full h-32 resize-none"
-                placeholder="Расскажите о своем видео..."
+                placeholder={videoData.isLive ? 'Расскажите о своей трансляции...' : 'Расскажите о своем видео...'}
               />
             </div>
 
@@ -321,11 +422,14 @@ export function VideoUploadForm() {
       )}
 
       {/* Submit Button */}
-      {file && (
+      {(file || videoData.isLive) && (
         <div className="flex justify-end space-x-4">
           <button
             type="button"
-            onClick={() => setFile(null)}
+            onClick={() => {
+              setFile(null)
+              setVideoData(prev => ({ ...prev, isLive: false }))
+            }}
             className="btn-secondary"
           >
             Отмена
@@ -335,7 +439,12 @@ export function VideoUploadForm() {
             disabled={isUploading || !videoData.title}
             className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isUploading ? 'Загрузка...' : 'Опубликовать видео'}
+            {isUploading 
+              ? 'Загрузка...' 
+              : videoData.isLive 
+                ? 'Начать трансляцию' 
+                : 'Опубликовать видео'
+            }
           </button>
         </div>
       )}

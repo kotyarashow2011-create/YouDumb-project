@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 
 export function RegisterForm() {
   const [formData, setFormData] = useState({
@@ -16,6 +17,7 @@ export function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const router = useRouter()
+  const { register } = useAuth()
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -46,18 +48,18 @@ export function RegisterForm() {
     if (!validateForm()) return
 
     setIsLoading(true)
+    setErrors({})
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const result = await register(formData.username, formData.email, formData.password)
       
-      // Here you would typically make an API call to register
-      console.log('Registration attempt:', formData)
-      
-      // Redirect to login page on success
-      router.push('/auth/login?message=registration-success')
+      if (result.success) {
+        router.push('/')
+      } else {
+        setErrors({ general: result.error || 'Ошибка регистрации' })
+      }
     } catch (err) {
-      setErrors({ general: 'Ошибка при регистрации. Попробуйте еще раз.' })
+      setErrors({ general: 'Произошла ошибка. Попробуйте еще раз.' })
     } finally {
       setIsLoading(false)
     }

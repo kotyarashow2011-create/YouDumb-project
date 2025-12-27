@@ -4,43 +4,31 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { ThumbsUp, ThumbsDown, Share, Download, Flag, CheckCircle } from 'lucide-react'
 import { formatViews, formatUploadDate } from '@/lib/utils'
+import { Video } from '@/lib/data'
+import { useAuth } from '@/hooks/useAuth'
+import { useVideo } from '@/hooks/useData'
 
 interface VideoInfoProps {
-  video: {
-    id: string
-    title: string
-    description: string
-    views: number
-    likes: number
-    dislikes: number
-    uploadDate: Date
-    channel: {
-      id: string
-      name: string
-      avatar: string
-      subscribers: number
-      verified: boolean
-      description: string
-    }
-    tags: string[]
-  }
+  video: Video
 }
 
 export function VideoInfo({ video }: VideoInfoProps) {
-  const [isSubscribed, setIsSubscribed] = useState(false)
-  const [isLiked, setIsLiked] = useState(false)
-  const [isDisliked, setIsDisliked] = useState(false)
   const [showFullDescription, setShowFullDescription] = useState(false)
+  const { user, isAuthenticated } = useAuth()
+  const { likeVideo, dislikeVideo, isLiked, isDisliked } = useVideo(video.id)
 
   const handleLike = () => {
-    setIsLiked(!isLiked)
-    if (isDisliked) setIsDisliked(false)
+    if (!isAuthenticated || !user) return
+    likeVideo(user.id)
   }
 
   const handleDislike = () => {
-    setIsDisliked(!isDisliked)
-    if (isLiked) setIsLiked(false)
+    if (!isAuthenticated || !user) return
+    dislikeVideo(user.id)
   }
+
+  const userLiked = isAuthenticated && user ? isLiked(user.id) : false
+  const userDisliked = isAuthenticated && user ? isDisliked(user.id) : false
 
   return (
     <div className="mt-4 space-y-4">
@@ -52,7 +40,7 @@ export function VideoInfo({ video }: VideoInfoProps) {
       {/* Video Stats and Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="text-gray-400 text-sm">
-          {formatViews(video.views)} просмотров • {formatUploadDate(video.uploadDate)}
+          {formatViews(video.viewCount)} просмотров • {formatUploadDate(video.uploadDate)}
         </div>
 
         {/* Action Buttons */}
@@ -61,28 +49,36 @@ export function VideoInfo({ video }: VideoInfoProps) {
           <div className="flex items-center bg-surface rounded-full">
             <button
               onClick={handleLike}
+              disabled={!isAuthenticated}
               className={`flex items-center space-x-2 px-4 py-2 rounded-l-full transition-colors ${
-                isLiked ? 'text-accent' : 'text-white hover:bg-gray-700'
-              }`}
+                userLiked ? 'text-accent' : 'text-white hover:bg-gray-700'
+              } ${!isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <ThumbsUp className="w-5 h-5" />
-              <span className="text-sm">{formatViews(video.likes)}</span>
+              <span className="text-sm">{formatViews(video.likeCount)}</span>
             </button>
             
             <div className="w-px h-6 bg-gray-600"></div>
             
             <button
               onClick={handleDislike}
+              disabled={!isAuthenticated}
               className={`flex items-center space-x-2 px-4 py-2 rounded-r-full transition-colors ${
-                isDisliked ? 'text-accent' : 'text-white hover:bg-gray-700'
-              }`}
+                userDisliked ? 'text-accent' : 'text-white hover:bg-gray-700'
+              } ${!isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <ThumbsDown className="w-5 h-5" />
             </button>
           </div>
 
           {/* Share */}
-          <button className="flex items-center space-x-2 px-4 py-2 bg-surface rounded-full text-white hover:bg-gray-700 transition-colors">
+          <button 
+            onClick={() => {
+              navigator.clipboard.writeText(window.location.href)
+              // You could add a toast notification here
+            }}
+            className="flex items-center space-x-2 px-4 py-2 bg-surface rounded-full text-white hover:bg-gray-700 transition-colors"
+          >
             <Share className="w-5 h-5" />
             <span className="text-sm">Поделиться</span>
           </button>
@@ -102,40 +98,46 @@ export function VideoInfo({ video }: VideoInfoProps) {
 
       {/* Channel Info */}
       <div className="flex items-start space-x-4 p-4 bg-surface rounded-lg">
-        <Image
-          src={video.channel.avatar}
-          alt={video.channel.name}
-          width={48}
-          height={48}
-          className="rounded-full"
-        />
+        <div className="w-12 h-12 bg-gray-600 rounded-full overflow-hidden flex-shrink-0">
+          {video.user.avatarUrl ? (
+            <Image
+              src={video.user.avatarUrl}
+              alt={video.user.displayName}
+              width={48}
+              height={48}
+              className="rounded-full"
+            />
+          ) : (
+            <div className="w-full h-full bg-gray-600 flex items-center justify-center">
+              <span className="text-white font-medium text-lg">
+                {video.user.displayName.charAt(0).toUpperCase()}
+              </span>
+            </div>
+          )}
+        </div>
         
         <div className="flex-1">
           <div className="flex items-center space-x-2 mb-1">
-            <h3 className="font-medium text-white">{video.channel.name}</h3>
-            {video.channel.verified && (
+            <h3 className="font-medium text-white">{video.user.displayName}</h3>
+            {video.user.isVerified && (
               <CheckCircle className="w-4 h-4 text-accent" />
             )}
           </div>
           
           <p className="text-gray-400 text-sm mb-3">
-            {formatViews(video.channel.subscribers)} подписчиков
-          </p>
-          
-          <p className="text-gray-300 text-sm">
-            {video.channel.description}
+            {formatViews(video.user.subscriberCount)} подписчиков
           </p>
         </div>
         
         <button
-          onClick={() => setIsSubscribed(!isSubscribed)}
+          disabled={!isAuthenticated}
           className={`px-6 py-2 rounded-full font-medium transition-colors ${
-            isSubscribed
-              ? 'bg-gray-600 text-white hover:bg-gray-700'
+            !isAuthenticated 
+              ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
               : 'bg-accent text-black hover:bg-orange-600'
           }`}
         >
-          {isSubscribed ? 'Отписаться' : 'Подписаться'}
+          {isAuthenticated ? 'Подписаться' : 'Войдите для подписки'}
         </button>
       </div>
 
@@ -144,15 +146,17 @@ export function VideoInfo({ video }: VideoInfoProps) {
         <div className={`text-gray-300 text-sm ${
           showFullDescription ? '' : 'line-clamp-3'
         }`}>
-          {video.description}
+          {video.description || 'Описание отсутствует'}
         </div>
         
-        <button
-          onClick={() => setShowFullDescription(!showFullDescription)}
-          className="text-accent text-sm mt-2 hover:underline"
-        >
-          {showFullDescription ? 'Свернуть' : 'Показать еще'}
-        </button>
+        {video.description && (
+          <button
+            onClick={() => setShowFullDescription(!showFullDescription)}
+            className="text-accent text-sm mt-2 hover:underline"
+          >
+            {showFullDescription ? 'Свернуть' : 'Показать еще'}
+          </button>
+        )}
 
         {/* Tags */}
         {video.tags.length > 0 && (

@@ -2,76 +2,59 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { formatViews } from '@/lib/utils'
-
-const recommendedVideos = [
-  {
-    id: 'rec-1',
-    title: 'Секреты успешного YouTube канала',
-    thumbnail: '/api/placeholder/168/94',
-    duration: '8:45',
-    views: 89000,
-    uploadDate: '1 неделю назад',
-    channel: {
-      name: 'ТехноОбзор',
-      verified: false
-    }
-  },
-  {
-    id: 'rec-2',
-    title: 'Как монетизировать свой контент',
-    thumbnail: '/api/placeholder/168/94',
-    duration: '15:22',
-    views: 234000,
-    uploadDate: '3 дня назад',
-    channel: {
-      name: 'Бизнес Гуру',
-      verified: true
-    }
-  },
-  {
-    id: 'rec-3',
-    title: 'Лучшие программы для монтажа',
-    thumbnail: '/api/placeholder/168/94',
-    duration: '12:18',
-    views: 156000,
-    uploadDate: '5 дней назад',
-    channel: {
-      name: 'Видео Мастер',
-      verified: false
-    }
-  },
-  {
-    id: 'rec-4',
-    title: 'Создание миниатюр для видео',
-    thumbnail: '/api/placeholder/168/94',
-    duration: '9:33',
-    views: 98000,
-    uploadDate: '1 день назад',
-    channel: {
-      name: 'Дизайн Студия',
-      verified: true
-    }
-  },
-  {
-    id: 'rec-5',
-    title: 'Анализ трендов YouTube 2024',
-    thumbnail: '/api/placeholder/168/94',
-    duration: '18:45',
-    views: 345000,
-    uploadDate: '2 дня назад',
-    channel: {
-      name: 'Аналитик',
-      verified: true
-    }
-  }
-]
+import { formatViews, formatUploadDate, formatDuration } from '@/lib/utils'
+import { useVideos } from '@/hooks/useData'
+import { Play } from 'lucide-react'
 
 interface RecommendedVideosProps {
   currentVideoId: string
 }
 
 export function RecommendedVideos({ currentVideoId }: RecommendedVideosProps) {
+  const { videos, loading } = useVideos()
+  
+  // Filter out current video and get recommendations
+  const recommendedVideos = videos
+    .filter(video => video.id !== currentVideoId)
+    .slice(0, 10)
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-white mb-4">
+          Рекомендуемые видео
+        </h3>
+        
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex space-x-3 animate-pulse">
+            <div className="w-40 h-24 bg-gray-700 rounded flex-shrink-0"></div>
+            <div className="flex-1 space-y-2">
+              <div className="h-4 bg-gray-700 rounded"></div>
+              <div className="h-3 bg-gray-700 rounded w-3/4"></div>
+              <div className="h-3 bg-gray-700 rounded w-1/2"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (recommendedVideos.length === 0) {
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-white mb-4">
+          Рекомендуемые видео
+        </h3>
+        
+        <div className="text-center py-8">
+          <p className="text-gray-400">
+            Нет рекомендуемых видео
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-white mb-4">
@@ -86,16 +69,35 @@ export function RecommendedVideos({ currentVideoId }: RecommendedVideosProps) {
         >
           {/* Thumbnail */}
           <div className="relative flex-shrink-0">
-            <Image
-              src={video.thumbnail}
-              alt={video.title}
-              width={168}
-              height={94}
-              className="rounded-lg object-cover"
-            />
-            <div className="absolute bottom-1 right-1 bg-black bg-opacity-80 text-white text-xs px-1 rounded">
-              {video.duration}
+            <div className="w-40 h-24 bg-gray-800 rounded-lg overflow-hidden">
+              {video.thumbnailUrl ? (
+                <Image
+                  src={video.thumbnailUrl}
+                  alt={video.title}
+                  width={160}
+                  height={90}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gray-700 flex items-center justify-center">
+                  <Play className="w-8 h-8 text-gray-500" />
+                </div>
+              )}
             </div>
+            
+            {/* Duration */}
+            {!video.isLive && (
+              <div className="absolute bottom-1 right-1 bg-black bg-opacity-80 text-white text-xs px-1 rounded">
+                {formatDuration(video.duration)}
+              </div>
+            )}
+            
+            {/* Live indicator */}
+            {video.isLive && (
+              <div className="absolute top-1 left-1 bg-red-500 text-white text-xs px-2 py-1 rounded">
+                LIVE
+              </div>
+            )}
           </div>
           
           {/* Video Info */}
@@ -105,20 +107,22 @@ export function RecommendedVideos({ currentVideoId }: RecommendedVideosProps) {
             </h4>
             
             <p className="text-gray-400 text-xs mb-1">
-              {video.channel.name}
+              {video.user.displayName}
             </p>
             
             <p className="text-gray-400 text-xs">
-              {formatViews(video.views)} просмотров • {video.uploadDate}
+              {formatViews(video.viewCount)} просмотров • {formatUploadDate(video.uploadDate)}
             </p>
           </div>
         </Link>
       ))}
       
       {/* Load More */}
-      <button className="w-full py-2 text-accent text-sm hover:underline">
-        Показать еще
-      </button>
+      {recommendedVideos.length >= 10 && (
+        <button className="w-full py-2 text-accent text-sm hover:underline">
+          Показать еще
+        </button>
+      )}
     </div>
   )
 }

@@ -1,8 +1,29 @@
+'use client'
+
 import { VideoGrid } from '@/components/video/VideoGrid'
 import { TrendingSection } from '@/components/home/TrendingSection'
 import { CategoryTabs } from '@/components/home/CategoryTabs'
+import { LiveStreams } from '@/components/home/LiveStreams'
+import { EmptyState } from '@/components/home/EmptyState'
+import { useVideos, useTrendingVideos, useLiveStreams } from '@/hooks/useData'
 
 export default function HomePage() {
+  const { videos, loading } = useVideos()
+  const { videos: trendingVideos } = useTrendingVideos()
+  const { streams } = useLiveStreams()
+
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="text-white text-lg">Загрузка...</div>
+      </div>
+    )
+  }
+
+  if (videos.length === 0) {
+    return <EmptyState />
+  }
+
   return (
     <div className="p-6">
       {/* Hero Section */}
@@ -18,13 +39,16 @@ export default function HomePage() {
       {/* Category Navigation */}
       <CategoryTabs />
 
+      {/* Live Streams */}
+      {streams.length > 0 && <LiveStreams />}
+
       {/* Trending Section */}
-      <TrendingSection />
+      {trendingVideos.length > 0 && <TrendingSection />}
 
       {/* Main Video Grid */}
       <section className="mt-8">
         <h2 className="text-2xl font-semibold text-white mb-6">
-          Рекомендуемые видео
+          Все видео
         </h2>
         <VideoGrid />
       </section>
