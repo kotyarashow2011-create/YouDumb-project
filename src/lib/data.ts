@@ -1,4 +1,5 @@
 // Data management for videos, channels, etc.
+import { notificationManager } from './notifications'
 export interface Video {
   id: string
   title: string
@@ -210,6 +211,17 @@ class DataManager {
         this.userDislikes.delete(likeKey)
         video.dislikeCount--
       }
+
+      // Отправляем уведомление владельцу видео
+      if (video.userId !== userId) {
+        const likerUser = {
+          id: userId,
+          username: `user_${userId.slice(-4)}`,
+          displayName: `Пользователь ${userId.slice(-4)}`,
+          avatarUrl: undefined
+        }
+        notificationManager.notifyLike(video.userId, likerUser, video.title, videoId)
+      }
     }
     
     this.saveData()
@@ -286,6 +298,13 @@ class DataManager {
     }
 
     this.comments.push(newComment)
+
+    // Отправляем уведомление владельцу видео
+    const video = this.videos.find(v => v.id === videoId)
+    if (video && video.userId !== userId) {
+      notificationManager.notifyComment(video.userId, user, video.title, videoId)
+    }
+
     this.saveData()
     this.notifyListeners()
     return newComment

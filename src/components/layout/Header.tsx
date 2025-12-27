@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Search, Upload, User, Menu, Bell } from 'lucide-react'
+import { Search, Upload, User, Menu } from 'lucide-react'
 import { SearchBar } from '@/components/search/SearchBar'
 import { UserMenu } from '@/components/auth/UserMenu'
+import { NotificationDropdown } from '@/components/layout/NotificationDropdown'
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -56,10 +57,7 @@ export function Header() {
           </Link>
 
           {/* Notifications */}
-          <button className="p-2 hover:bg-surface rounded-lg transition-colors relative">
-            <Bell className="w-6 h-6 text-white" />
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-accent rounded-full"></span>
-          </button>
+          <NotificationDropdown />
 
           {/* User Menu */}
           <UserMenu />

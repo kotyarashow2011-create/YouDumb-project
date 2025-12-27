@@ -104,16 +104,27 @@ export function VideoUploadForm() {
         if (prev >= 100) {
           clearInterval(interval)
           
+          // Реальные тестовые видео для демонстрации
+          const testVideos = [
+            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4'
+          ]
+          
+          const randomVideo = testVideos[Math.floor(Math.random() * testVideos.length)]
+          
           // Create the video
           const newVideo = dataManager.addVideo({
             title: videoData.title,
             description: videoData.description,
             thumbnailUrl: videoData.isLive 
-              ? 'https://via.placeholder.com/320x180/f97316/000000?text=LIVE'
-              : 'https://via.placeholder.com/320x180/1a1a1a/ffffff?text=VIDEO',
+              ? `https://picsum.photos/320/180?random=${Date.now()}&overlay=LIVE`
+              : `https://picsum.photos/320/180?random=${Date.now()}`,
             videoUrl: videoData.isLive 
-              ? 'https://example.com/live-stream'
-              : 'https://example.com/video.mp4',
+              ? randomVideo // Для стримов тоже используем реальное видео
+              : randomVideo,
             duration: videoData.isLive ? 0 : Math.floor(Math.random() * 3600) + 60,
             userId: user.id,
             user: {

@@ -2,12 +2,39 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { Settings, User, Bell, Shield, Palette, Globe, LogOut } from 'lucide-react'
+import { useNotifications } from '@/hooks/useNotifications'
+import { Settings, User, Bell, Shield, Palette, Globe, LogOut, Edit } from 'lucide-react'
+import { ProfileEditForm } from '@/components/profile/ProfileEditForm'
 import Link from 'next/link'
 
 export default function SettingsPage() {
   const { isAuthenticated, user, logout } = useAuth()
+  const { requestPermission } = useNotifications(user?.id)
   const [activeTab, setActiveTab] = useState('profile')
+  const [showProfileEdit, setShowProfileEdit] = useState(false)
+  const [settings, setSettings] = useState({
+    notifications: {
+      newVideos: true,
+      comments: true,
+      likes: false,
+      email: false,
+      browser: true
+    },
+    privacy: {
+      publicProfile: true,
+      watchHistory: true,
+      recommendations: true
+    },
+    appearance: {
+      theme: 'dark',
+      textSize: 'medium'
+    },
+    language: {
+      interface: 'ru',
+      region: 'ru',
+      timezone: 'GMT+3'
+    }
+  })
 
   if (!isAuthenticated) {
     return (
@@ -99,13 +126,25 @@ export default function SettingsPage() {
                         Аватар
                       </label>
                       <div className="flex items-center space-x-4">
-                        <div className="w-16 h-16 bg-gray-600 rounded-full flex items-center justify-center">
-                          <span className="text-white text-xl font-bold">
-                            {user?.displayName.charAt(0).toUpperCase()}
-                          </span>
+                        <div className="w-16 h-16 bg-gray-600 rounded-full flex items-center justify-center overflow-hidden">
+                          {user?.avatarUrl ? (
+                            <img 
+                              src={user.avatarUrl} 
+                              alt={user.displayName}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-white text-xl font-bold">
+                              {user?.displayName.charAt(0).toUpperCase()}
+                            </span>
+                          )}
                         </div>
-                        <button className="btn-secondary">
-                          Изменить фото
+                        <button 
+                          onClick={() => setShowProfileEdit(true)}
+                          className="btn-secondary flex items-center space-x-2"
+                        >
+                          <Edit className="w-4 h-4" />
+                          <span>Редактировать профиль</span>
                         </button>
                       </div>
                     </div>
@@ -117,9 +156,13 @@ export default function SettingsPage() {
                       </label>
                       <input
                         type="text"
-                        defaultValue={user?.displayName}
+                        value={user?.displayName}
                         className="input-primary w-full max-w-md"
+                        readOnly
                       />
+                      <p className="text-gray-400 text-sm mt-1">
+                        Используйте кнопку "Редактировать профиль" для изменения
+                      </p>
                     </div>
 
                     {/* Username */}
@@ -129,9 +172,13 @@ export default function SettingsPage() {
                       </label>
                       <input
                         type="text"
-                        defaultValue={user?.username}
+                        value={user?.username}
                         className="input-primary w-full max-w-md"
+                        readOnly
                       />
+                      <p className="text-gray-400 text-sm mt-1">
+                        youtu.be/@{user?.username}
+                      </p>
                     </div>
 
                     {/* Email */}
@@ -141,25 +188,11 @@ export default function SettingsPage() {
                       </label>
                       <input
                         type="email"
-                        defaultValue={user?.email}
+                        value={user?.email}
                         className="input-primary w-full max-w-md"
+                        readOnly
                       />
                     </div>
-
-                    {/* Bio */}
-                    <div>
-                      <label className="block text-white font-medium mb-2">
-                        О себе
-                      </label>
-                      <textarea
-                        placeholder="Расскажите о себе..."
-                        className="input-primary w-full max-w-md h-24 resize-none"
-                      />
-                    </div>
-
-                    <button className="btn-primary">
-                      Сохранить изменения
-                    </button>
                   </div>
                 </div>
               )}
@@ -171,12 +204,35 @@ export default function SettingsPage() {
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <div>
+                        <h3 className="text-white font-medium">Браузерные уведомления</h3>
+                        <p className="text-gray-400 text-sm">
+                          Показывать уведомления в браузере
+                        </p>
+                      </div>
+                      <button
+                        onClick={requestPermission}
+                        className="btn-secondary text-sm"
+                      >
+                        Разрешить
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
                         <h3 className="text-white font-medium">Новые видео</h3>
                         <p className="text-gray-400 text-sm">
                           Уведомления о новых видео от подписок
                         </p>
                       </div>
-                      <input type="checkbox" className="toggle" defaultChecked />
+                      <input 
+                        type="checkbox" 
+                        className="toggle" 
+                        checked={settings.notifications.newVideos}
+                        onChange={(e) => setSettings(prev => ({
+                          ...prev,
+                          notifications: { ...prev.notifications, newVideos: e.target.checked }
+                        }))}
+                      />
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -186,7 +242,15 @@ export default function SettingsPage() {
                           Уведомления о новых комментариях к вашим видео
                         </p>
                       </div>
-                      <input type="checkbox" className="toggle" defaultChecked />
+                      <input 
+                        type="checkbox" 
+                        className="toggle" 
+                        checked={settings.notifications.comments}
+                        onChange={(e) => setSettings(prev => ({
+                          ...prev,
+                          notifications: { ...prev.notifications, comments: e.target.checked }
+                        }))}
+                      />
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -196,7 +260,15 @@ export default function SettingsPage() {
                           Уведомления о лайках ваших видео
                         </p>
                       </div>
-                      <input type="checkbox" className="toggle" />
+                      <input 
+                        type="checkbox" 
+                        className="toggle" 
+                        checked={settings.notifications.likes}
+                        onChange={(e) => setSettings(prev => ({
+                          ...prev,
+                          notifications: { ...prev.notifications, likes: e.target.checked }
+                        }))}
+                      />
                     </div>
 
                     <div className="flex items-center justify-between">
@@ -206,7 +278,15 @@ export default function SettingsPage() {
                           Получать уведомления на email
                         </p>
                       </div>
-                      <input type="checkbox" className="toggle" />
+                      <input 
+                        type="checkbox" 
+                        className="toggle" 
+                        checked={settings.notifications.email}
+                        onChange={(e) => setSettings(prev => ({
+                          ...prev,
+                          notifications: { ...prev.notifications, email: e.target.checked }
+                        }))}
+                      />
                     </div>
                   </div>
                 </div>
@@ -326,6 +406,11 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Profile Edit Modal */}
+      {showProfileEdit && (
+        <ProfileEditForm onClose={() => setShowProfileEdit(false)} />
+      )}
     </div>
   )
 }

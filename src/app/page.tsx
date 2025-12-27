@@ -1,16 +1,25 @@
 'use client'
 
+import { useEffect } from 'react'
 import { VideoGrid } from '@/components/video/VideoGrid'
 import { TrendingSection } from '@/components/home/TrendingSection'
 import { CategoryTabs } from '@/components/home/CategoryTabs'
 import { LiveStreams } from '@/components/home/LiveStreams'
 import { EmptyState } from '@/components/home/EmptyState'
 import { useVideos, useTrendingVideos, useLiveStreams } from '@/hooks/useData'
+import { seedTestData } from '@/lib/seedData'
 
 export default function HomePage() {
   const { videos, loading } = useVideos()
   const { videos: trendingVideos } = useTrendingVideos()
   const { streams } = useLiveStreams()
+
+  // Инициализируем тестовые данные при первом запуске
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      seedTestData()
+    }
+  }, [])
 
   if (loading) {
     return (
