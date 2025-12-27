@@ -35,7 +35,7 @@ class NotificationManager {
   }
 
   private loadNotifications() {
-    const stored = localStorage.getItem('youdumb_notifications')
+    const stored = localStorage.getItem('youdumb_global_notifications')
     if (stored) {
       try {
         const parsed = JSON.parse(stored)
@@ -50,7 +50,7 @@ class NotificationManager {
   }
 
   private saveNotifications() {
-    localStorage.setItem('youdumb_notifications', JSON.stringify(this.notifications))
+    localStorage.setItem('youdumb_global_notifications', JSON.stringify(this.notifications))
   }
 
   private notifyListeners() {

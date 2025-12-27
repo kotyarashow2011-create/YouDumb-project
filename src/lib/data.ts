@@ -91,10 +91,11 @@ class DataManager {
   }
 
   private loadData() {
-    const stored = localStorage.getItem('youdumb_data')
-    if (stored) {
+    // Загружаем глобальные данные (видео, комментарии, каналы) - доступны всем
+    const globalStored = localStorage.getItem('youdumb_global_data')
+    if (globalStored) {
       try {
-        const parsed = JSON.parse(stored)
+        const parsed = JSON.parse(globalStored)
         this.videos = parsed.videos?.map((v: any) => ({
           ...v,
           uploadDate: new Date(v.uploadDate)
@@ -111,6 +112,16 @@ class DataManager {
           ...s,
           createdAt: new Date(s.createdAt)
         })) || []
+      } catch (e) {
+        console.error('Error loading global data:', e)
+      }
+    }
+
+    // Загружаем персональные данные пользователя (лайки, история)
+    const personalStored = localStorage.getItem('youdumb_personal_data')
+    if (personalStored) {
+      try {
+        const parsed = JSON.parse(personalStored)
         this.userLikes = new Set(parsed.userLikes || [])
         this.userDislikes = new Set(parsed.userDislikes || [])
         this.watchHistory = parsed.watchHistory?.map((w: any) => ({
@@ -122,23 +133,29 @@ class DataManager {
           likedAt: new Date(l.likedAt)
         })) || []
       } catch (e) {
-        console.error('Error loading data:', e)
+        console.error('Error loading personal data:', e)
       }
     }
   }
 
   private saveData() {
-    const data = {
+    // Сохраняем глобальные данные (видео, комментарии, каналы) - доступны всем
+    const globalData = {
       videos: this.videos,
       comments: this.comments,
       channels: this.channels,
-      subscriptions: this.subscriptions,
+      subscriptions: this.subscriptions
+    }
+    localStorage.setItem('youdumb_global_data', JSON.stringify(globalData))
+
+    // Сохраняем персональные данные пользователя (лайки, история)
+    const personalData = {
       userLikes: Array.from(this.userLikes),
       userDislikes: Array.from(this.userDislikes),
       watchHistory: this.watchHistory,
       likedVideos: this.likedVideos
     }
-    localStorage.setItem('youdumb_data', JSON.stringify(data))
+    localStorage.setItem('youdumb_personal_data', JSON.stringify(personalData))
   }
 
   private notifyListeners() {
