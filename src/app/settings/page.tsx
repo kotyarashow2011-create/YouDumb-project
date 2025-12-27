@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useNotifications } from '@/hooks/useNotifications'
 import { Settings, User, Bell, Shield, Palette, Globe, LogOut, Edit } from 'lucide-react'
 import { ProfileEditForm } from '@/components/profile/ProfileEditForm'
+import { dataManager } from '@/lib/data'
 import Link from 'next/link'
 
 export default function SettingsPage() {
@@ -66,6 +67,7 @@ export default function SettingsPage() {
     { id: 'privacy', label: 'Приватность', icon: Shield },
     { id: 'appearance', label: 'Внешний вид', icon: Palette },
     { id: 'language', label: 'Язык', icon: Globe },
+    { id: 'data', label: 'Данные', icon: Settings },
   ]
 
   return (
@@ -319,12 +321,42 @@ export default function SettingsPage() {
 
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-white font-medium">Рекомендации</h3>
+                        <h3 className="text-white font-medium">Блокировка контента</h3>
                         <p className="text-gray-400 text-sm">
-                          Использовать историю для персонализации рекомендаций
+                          Скрывать контент для взрослых
                         </p>
                       </div>
                       <input type="checkbox" className="toggle" defaultChecked />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-white font-medium">Комментарии</h3>
+                        <p className="text-gray-400 text-sm">
+                          Разрешить комментарии к вашим видео
+                        </p>
+                      </div>
+                      <input type="checkbox" className="toggle" defaultChecked />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-white font-medium">Поиск канала</h3>
+                        <p className="text-gray-400 text-sm">
+                          Разрешить находить ваш канал в поиске
+                        </p>
+                      </div>
+                      <input type="checkbox" className="toggle" defaultChecked />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-white font-medium">Статистика</h3>
+                        <p className="text-gray-400 text-sm">
+                          Показывать статистику канала публично
+                        </p>
+                      </div>
+                      <input type="checkbox" className="toggle" />
                     </div>
                   </div>
                 </div>
@@ -349,13 +381,50 @@ export default function SettingsPage() {
                       </div>
                     </div>
 
-                    <div>
-                      <h3 className="text-white font-medium mb-3">Размер текста</h3>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-white font-medium">Автовоспроизведение</h3>
+                        <p className="text-gray-400 text-sm">
+                          Автоматически воспроизводить следующее видео
+                        </p>
+                      </div>
+                      <input type="checkbox" className="toggle" defaultChecked />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-white font-medium">Качество видео</h3>
+                        <p className="text-gray-400 text-sm">
+                          Предпочитаемое качество воспроизведения
+                        </p>
+                      </div>
                       <select className="input-primary">
-                        <option>Маленький</option>
-                        <option selected>Средний</option>
-                        <option>Большой</option>
+                        <option>Авто</option>
+                        <option>1080p</option>
+                        <option>720p</option>
+                        <option>480p</option>
+                        <option>360p</option>
                       </select>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-white font-medium">Субтитры</h3>
+                        <p className="text-gray-400 text-sm">
+                          Автоматически включать субтитры
+                        </p>
+                      </div>
+                      <input type="checkbox" className="toggle" />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-white font-medium">Анимации</h3>
+                        <p className="text-gray-400 text-sm">
+                          Включить анимации интерфейса
+                        </p>
+                      </div>
+                      <input type="checkbox" className="toggle" defaultChecked />
                     </div>
                   </div>
                 </div>
@@ -398,6 +467,65 @@ export default function SettingsPage() {
                         <option>GMT+4 (Самара)</option>
                         <option>GMT+5 (Екатеринбург)</option>
                       </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'data' && (
+                <div>
+                  <h2 className="text-2xl font-semibold text-white mb-6">Управление данными</h2>
+                  
+                  <div className="space-y-6">
+                    <div className="bg-gray-800 rounded-lg p-4">
+                      <h3 className="text-white font-medium mb-2">Экспорт данных</h3>
+                      <p className="text-gray-400 text-sm mb-4">
+                        Скачайте копию ваших данных
+                      </p>
+                      <button className="btn-secondary">
+                        Скачать данные
+                      </button>
+                    </div>
+
+                    <div className="bg-gray-800 rounded-lg p-4">
+                      <h3 className="text-white font-medium mb-2">Очистка истории</h3>
+                      <p className="text-gray-400 text-sm mb-4">
+                        Удалить историю просмотров и поиска
+                      </p>
+                      <div className="space-x-2">
+                        <button 
+                          onClick={() => {
+                            if (user && confirm('Очистить историю просмотров?')) {
+                              dataManager.clearWatchHistory(user.id)
+                              alert('История просмотров очищена')
+                            }
+                          }}
+                          className="btn-secondary"
+                        >
+                          Очистить историю
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
+                      <h3 className="text-red-400 font-medium mb-2">Удаление аккаунта</h3>
+                      <p className="text-gray-400 text-sm mb-4">
+                        Безвозвратно удалить ваш аккаунт и все данные
+                      </p>
+                      <button 
+                        onClick={() => {
+                          if (confirm('Вы уверены? Это действие нельзя отменить!')) {
+                            if (confirm('Все ваши видео, комментарии и данные будут удалены навсегда!')) {
+                              // В реальном приложении здесь был бы API вызов
+                              localStorage.clear()
+                              window.location.href = '/'
+                            }
+                          }
+                        }}
+                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
+                      >
+                        Удалить аккаунт
+                      </button>
                     </div>
                   </div>
                 </div>

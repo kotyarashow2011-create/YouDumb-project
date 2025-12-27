@@ -73,8 +73,8 @@ export function useVideo(videoId: string) {
     return unsubscribe
   }, [videoId])
 
-  const incrementViews = () => {
-    dataManager.incrementViews(videoId)
+  const incrementViews = (userId?: string) => {
+    dataManager.incrementViews(videoId, userId)
   }
 
   const likeVideo = (userId: string) => {

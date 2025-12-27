@@ -143,6 +143,8 @@ class NotificationManager {
   }
 
   notifySubscribe(channelOwnerId: string, subscriberUser: any) {
+    if (channelOwnerId === subscriberUser.id) return // Не уведомляем себя
+    
     this.addNotification({
       type: 'subscribe',
       title: 'Новый подписчик!',
@@ -154,6 +156,8 @@ class NotificationManager {
 
   notifyVideoUpload(subscriberIds: string[], uploaderUser: any, videoTitle: string, videoId: string) {
     subscriberIds.forEach(subscriberId => {
+      if (subscriberId === uploaderUser.id) return // Не уведомляем себя
+      
       this.addNotification({
         type: 'upload',
         title: 'Новое видео!',
@@ -167,6 +171,8 @@ class NotificationManager {
 
   notifyLiveStream(subscriberIds: string[], streamerUser: any, streamTitle: string, videoId: string) {
     subscriberIds.forEach(subscriberId => {
+      if (subscriberId === streamerUser.id) return // Не уведомляем себя
+      
       this.addNotification({
         type: 'live',
         title: 'Прямой эфир!',

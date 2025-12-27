@@ -98,51 +98,115 @@ export function VideoUploadForm() {
 
     setIsUploading(true)
     
+    // Функция для создания превью из видео
+    const createVideoThumbnail = (videoFile: File): Promise<{ thumbnailUrl: string, duration: number }> => {
+      return new Promise((resolve) => {
+        const video = document.createElement('video')
+        video.preload = 'metadata'
+        
+        video.onloadedmetadata = () => {
+          // Создаем canvas для захвата кадра
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d')
+          
+          canvas.width = 320
+          canvas.height = 180
+          
+          // Устанавливаем время на 10% от длительности видео для превью
+          video.currentTime = video.duration * 0.1
+        }
+        
+        video.onseeked = () => {
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d')
+          
+          canvas.width = 320
+          canvas.height = 180
+          
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+            const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.8)
+            resolve({ thumbnailUrl, duration: Math.floor(video.duration) })
+          } else {
+            // Fallback если canvas не работает
+            resolve({ 
+              thumbnailUrl: `https://via.placeholder.com/320x180/1a1a1a/ffffff?text=${encodeURIComponent(videoData.title.slice(0, 20))}`,
+              duration: 0
+            })
+          }
+        }
+        
+        video.onerror = () => {
+          // Fallback при ошибке
+          resolve({ 
+            thumbnailUrl: `https://via.placeholder.com/320x180/1a1a1a/ffffff?text=${encodeURIComponent(videoData.title.slice(0, 20))}`,
+            duration: 0
+          })
+        }
+        
+        video.src = URL.createObjectURL(videoFile)
+      })
+    }
+    
     // Simulate upload progress
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       setUploadProgress(prev => {
         if (prev >= 100) {
           clearInterval(interval)
           
-          // Используем реальный загруженный файл или создаем URL для стрима
-          let videoUrl = ''
-          let thumbnailUrl = ''
-          
-          if (videoData.isLive) {
-            // Для стримов создаем placeholder URL (в реальном приложении здесь был бы streaming server)
-            videoUrl = `stream://${user.id}/${Date.now()}`
-            thumbnailUrl = `https://via.placeholder.com/320x180/ff0000/ffffff?text=LIVE+STREAM`
-          } else if (file) {
-            // Используем реальный загруженный файл
-            videoUrl = URL.createObjectURL(file)
-            // Создаем thumbnail из видео (в реальном приложении это делалось бы на сервере)
-            thumbnailUrl = `https://via.placeholder.com/320x180/1a1a1a/ffffff?text=${encodeURIComponent(videoData.title.slice(0, 20))}`
+          const processVideo = async () => {
+            let videoUrl = ''
+            let thumbnailUrl = ''
+            let duration = 0
+            
+            if (videoData.isLive) {
+              // Для стримов
+              videoUrl = `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4` // Демо стрим
+              thumbnailUrl = `https://via.placeholder.com/320x180/ff0000/ffffff?text=LIVE+STREAM`
+              duration = 0
+            } else if (file) {
+              // Используем реальный загруженный файл
+              videoUrl = URL.createObjectURL(file)
+              
+              // Создаем превью из видео
+              try {
+                const videoInfo = await createVideoThumbnail(file)
+                thumbnailUrl = videoInfo.thumbnailUrl
+                duration = videoInfo.duration
+              } catch (error) {
+                console.error('Ошибка создания превью:', error)
+                thumbnailUrl = `https://via.placeholder.com/320x180/1a1a1a/ffffff?text=${encodeURIComponent(videoData.title.slice(0, 20))}`
+                duration = 0
+              }
+            }
+            
+            // Create the video
+            const newVideo = dataManager.addVideo({
+              title: videoData.title,
+              description: videoData.description,
+              thumbnailUrl,
+              videoUrl,
+              duration,
+              userId: user.id,
+              user: {
+                id: user.id,
+                username: user.username,
+                displayName: user.displayName,
+                avatarUrl: user.avatarUrl,
+                isVerified: user.isVerified,
+                subscriberCount: user.subscriberCount
+              },
+              tags: videoData.tags,
+              status: 'published',
+              category: videoData.category,
+              isLive: videoData.isLive
+            })
+
+            setIsUploading(false)
+            router.push(`/watch/${newVideo.id}`)
           }
           
-          // Create the video
-          const newVideo = dataManager.addVideo({
-            title: videoData.title,
-            description: videoData.description,
-            thumbnailUrl,
-            videoUrl,
-            duration: videoData.isLive ? 0 : Math.floor(Math.random() * 3600) + 60,
-            userId: user.id,
-            user: {
-              id: user.id,
-              username: user.username,
-              displayName: user.displayName,
-              avatarUrl: user.avatarUrl,
-              isVerified: user.isVerified,
-              subscriberCount: user.subscriberCount
-            },
-            tags: videoData.tags,
-            status: 'published',
-            category: videoData.category,
-            isLive: videoData.isLive
-          })
-
-          setIsUploading(false)
-          router.push(`/watch/${newVideo.id}`)
+          processVideo()
           return 100
         }
         return prev + 10

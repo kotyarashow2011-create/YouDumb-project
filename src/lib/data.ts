@@ -73,6 +73,8 @@ class DataManager {
   private subscriptions: Subscription[] = []
   private userLikes: Set<string> = new Set()
   private userDislikes: Set<string> = new Set()
+  private watchHistory: { userId: string, videoId: string, watchedAt: Date }[] = []
+  private likedVideos: { userId: string, videoId: string, likedAt: Date }[] = []
   private listeners: (() => void)[] = []
 
   static getInstance(): DataManager {
@@ -111,6 +113,14 @@ class DataManager {
         })) || []
         this.userLikes = new Set(parsed.userLikes || [])
         this.userDislikes = new Set(parsed.userDislikes || [])
+        this.watchHistory = parsed.watchHistory?.map((w: any) => ({
+          ...w,
+          watchedAt: new Date(w.watchedAt)
+        })) || []
+        this.likedVideos = parsed.likedVideos?.map((l: any) => ({
+          ...l,
+          likedAt: new Date(l.likedAt)
+        })) || []
       } catch (e) {
         console.error('Error loading data:', e)
       }
@@ -124,7 +134,9 @@ class DataManager {
       channels: this.channels,
       subscriptions: this.subscriptions,
       userLikes: Array.from(this.userLikes),
-      userDislikes: Array.from(this.userDislikes)
+      userDislikes: Array.from(this.userDislikes),
+      watchHistory: this.watchHistory,
+      likedVideos: this.likedVideos
     }
     localStorage.setItem('youdumb_data', JSON.stringify(data))
   }
@@ -176,15 +188,63 @@ class DataManager {
       uploadDate: new Date()
     }
     this.videos.push(newVideo)
+
+    // Уведомляем подписчиков о новом видео
+    if (!video.isLive) {
+      const userChannel = this.getChannelByUserId(video.userId)
+      if (userChannel) {
+        const subscribers = this.subscriptions
+          .filter(sub => sub.channelId === userChannel.id)
+          .map(sub => sub.subscriberId)
+        
+        if (subscribers.length > 0) {
+          notificationManager.notifyVideoUpload(subscribers, video.user, video.title, newVideo.id)
+        }
+      }
+    } else {
+      // Для стримов отправляем уведомления о начале трансляции
+      const userChannel = this.getChannelByUserId(video.userId)
+      if (userChannel) {
+        const subscribers = this.subscriptions
+          .filter(sub => sub.channelId === userChannel.id)
+          .map(sub => sub.subscriberId)
+        
+        if (subscribers.length > 0) {
+          notificationManager.notifyLiveStream(subscribers, video.user, video.title, newVideo.id)
+        }
+      }
+    }
+
     this.saveData()
     this.notifyListeners()
     return newVideo
   }
 
-  incrementViews(videoId: string) {
+  incrementViews(videoId: string, userId?: string) {
     const video = this.videos.find(v => v.id === videoId)
     if (video) {
       video.viewCount++
+      
+      // Добавляем в историю просмотров
+      if (userId) {
+        // Удаляем предыдущую запись этого видео для этого пользователя
+        this.watchHistory = this.watchHistory.filter(w => !(w.userId === userId && w.videoId === videoId))
+        
+        // Добавляем новую запись
+        this.watchHistory.push({
+          userId,
+          videoId,
+          watchedAt: new Date()
+        })
+        
+        // Ограничиваем историю последними 1000 записями на пользователя
+        const userHistory = this.watchHistory.filter(w => w.userId === userId)
+        if (userHistory.length > 1000) {
+          const toRemove = userHistory.sort((a, b) => a.watchedAt.getTime() - b.watchedAt.getTime()).slice(0, userHistory.length - 1000)
+          this.watchHistory = this.watchHistory.filter(w => !toRemove.some(r => r.userId === w.userId && r.videoId === w.videoId && r.watchedAt.getTime() === w.watchedAt.getTime()))
+        }
+      }
+      
       this.saveData()
       this.notifyListeners()
     }
@@ -225,10 +285,23 @@ class DataManager {
       // Unlike
       this.userLikes.delete(likeKey)
       video.likeCount--
+      
+      // Удаляем из понравившихся
+      this.likedVideos = this.likedVideos.filter(l => !(l.userId === userId && l.videoId === videoId))
     } else {
       // Like
       this.userLikes.add(likeKey)
       video.likeCount++
+      
+      // Добавляем в понравившиеся
+      const existingLike = this.likedVideos.find(l => l.userId === userId && l.videoId === videoId)
+      if (!existingLike) {
+        this.likedVideos.push({
+          userId,
+          videoId,
+          likedAt: new Date()
+        })
+      }
       
       // Remove dislike if exists
       if (this.userDislikes.has(likeKey)) {
@@ -323,10 +396,26 @@ class DataManager {
 
     this.comments.push(newComment)
 
-    // Отправляем уведомление владельцу видео
+    // Отправляем уведомления
     const video = this.videos.find(v => v.id === videoId)
-    if (video && video.userId !== userId) {
-      notificationManager.notifyComment(video.userId, user, video.title, videoId)
+    if (video) {
+      if (parentId) {
+        // Это ответ на комментарий - уведомляем автора комментария
+        const parentComment = this.comments.find(c => c.id === parentId)
+        if (parentComment && parentComment.userId !== userId) {
+          notificationManager.addNotification({
+            type: 'comment',
+            title: 'Ответ на комментарий',
+            message: `${user.displayName} ответил на ваш комментарий: "${content}"`,
+            userId: parentComment.userId,
+            fromUser: user,
+            videoId
+          })
+        }
+      } else if (video.userId !== userId) {
+        // Это новый комментарий - уведомляем владельца видео
+        notificationManager.notifyComment(video.userId, user, video.title, videoId)
+      }
     }
 
     this.saveData()
@@ -505,6 +594,35 @@ class DataManager {
         v.user.displayName.toLowerCase().includes(lowerQuery)
       )
       .sort((a, b) => b.viewCount - a.viewCount)
+  }
+
+  // History and Liked Videos
+  getWatchHistory(userId: string): Video[] {
+    const userHistory = this.watchHistory
+      .filter(w => w.userId === userId)
+      .sort((a, b) => b.watchedAt.getTime() - a.watchedAt.getTime())
+    
+    const videoIds = userHistory.map(w => w.videoId)
+    return videoIds
+      .map(id => this.videos.find(v => v.id === id))
+      .filter(Boolean) as Video[]
+  }
+
+  getLikedVideos(userId: string): Video[] {
+    const userLikes = this.likedVideos
+      .filter(l => l.userId === userId)
+      .sort((a, b) => b.likedAt.getTime() - a.likedAt.getTime())
+    
+    const videoIds = userLikes.map(l => l.videoId)
+    return videoIds
+      .map(id => this.videos.find(v => v.id === id))
+      .filter(Boolean) as Video[]
+  }
+
+  clearWatchHistory(userId: string) {
+    this.watchHistory = this.watchHistory.filter(w => w.userId !== userId)
+    this.saveData()
+    this.notifyListeners()
   }
 }
 

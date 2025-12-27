@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { Camera, Save, X, Upload } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { authManager } from '@/lib/auth'
+import { dataManager } from '@/lib/data'
 
 interface ProfileData {
   displayName: string
@@ -61,20 +62,30 @@ export function ProfileEditForm({ onClose }: ProfileEditFormProps) {
         avatarUrl: profileData.avatarUrl
       }
 
-      // В реальном приложении здесь был бы API вызов
-      // Для демо обновляем localStorage напрямую
+      // Обновляем в localStorage
       const authData = {
         user: updatedUser,
         isAuthenticated: true
       }
       localStorage.setItem('youdumb_auth', JSON.stringify(authData))
       
-      // Принудительно обновляем состояние
-      authManager.getAuthState().user = updatedUser
+      // Обновляем все видео пользователя с новой информацией
+      const userVideos = dataManager.getVideosByUserId(user.id)
+      userVideos.forEach(video => {
+        video.user = {
+          ...video.user,
+          displayName: updatedUser.displayName,
+          username: updatedUser.username,
+          avatarUrl: updatedUser.avatarUrl
+        }
+      })
       
-      onClose()
+      // Принудительно перезагружаем страницу для обновления всех компонентов
+      window.location.reload()
+      
     } catch (error) {
       console.error('Ошибка обновления профиля:', error)
+      alert('Ошибка при сохранении профиля. Попробуйте еще раз.')
     } finally {
       setIsLoading(false)
     }

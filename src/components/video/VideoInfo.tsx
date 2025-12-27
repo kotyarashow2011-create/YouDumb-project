@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { ThumbsUp, ThumbsDown, Share, Download, Flag, CheckCircle } from 'lucide-react'
+import { ThumbsUp, ThumbsDown, Share, Download, Flag, CheckCircle, Trash2, MoreVertical } from 'lucide-react'
 import { formatViews, formatUploadDate } from '@/lib/utils'
-import { Video } from '@/lib/data'
+import { Video, dataManager } from '@/lib/data'
 import { useAuth } from '@/hooks/useAuth'
 import { useVideo } from '@/hooks/useData'
 import { useSubscription } from '@/hooks/useSubscription'
+import { useRouter } from 'next/navigation'
 
 interface VideoInfoProps {
   video: Video
@@ -15,9 +16,11 @@ interface VideoInfoProps {
 
 export function VideoInfo({ video }: VideoInfoProps) {
   const [showFullDescription, setShowFullDescription] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
   const { user, isAuthenticated } = useAuth()
   const { likeVideo, dislikeVideo, isLiked, isDisliked } = useVideo(video.id)
   const { isSubscribed, toggleSubscription } = useSubscription(user?.id, video.userId)
+  const router = useRouter()
 
   const handleLike = () => {
     if (!isAuthenticated || !user) return
@@ -28,6 +31,53 @@ export function VideoInfo({ video }: VideoInfoProps) {
     if (!isAuthenticated || !user) return
     dislikeVideo(user.id)
   }
+
+  const handleShare = async () => {
+    const url = window.location.href
+    
+    if (navigator.share) {
+      // Используем Web Share API если доступен
+      try {
+        await navigator.share({
+          title: video.title,
+          text: video.description,
+          url: url
+        })
+      } catch (error) {
+        // Fallback to clipboard
+        navigator.clipboard.writeText(url)
+        alert('Ссылка скопирована в буфер обмена!')
+      }
+    } else {
+      // Fallback to clipboard
+      navigator.clipboard.writeText(url)
+      alert('Ссылка скопирована в буфер обмена!')
+    }
+  }
+
+  const handleDownload = () => {
+    // Создаем ссылку для скачивания
+    const link = document.createElement('a')
+    link.href = video.videoUrl
+    link.download = `${video.title}.mp4`
+    link.target = '_blank'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleDeleteVideo = () => {
+    if (!user || video.userId !== user.id) return
+    
+    if (confirm('Удалить это видео? Это действие нельзя отменить.')) {
+      const success = dataManager.deleteVideo(video.id, user.id)
+      if (success) {
+        router.push('/')
+      }
+    }
+  }
+
+  const canDelete = isAuthenticated && user && video.userId === user.id
 
   const userLiked = isAuthenticated && user ? isLiked(user.id) : false
   const userDisliked = isAuthenticated && user ? isDisliked(user.id) : false
@@ -52,11 +102,13 @@ export function VideoInfo({ video }: VideoInfoProps) {
             <button
               onClick={handleLike}
               disabled={!isAuthenticated}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-l-full transition-colors ${
-                userLiked ? 'text-accent' : 'text-white hover:bg-gray-700'
+              className={`flex items-center space-x-2 px-4 py-2 rounded-l-full transition-all ${
+                userLiked 
+                  ? 'text-white bg-accent hover:bg-orange-600' 
+                  : 'text-white hover:bg-gray-700'
               } ${!isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              <ThumbsUp className="w-5 h-5" />
+              <ThumbsUp className={`w-5 h-5 ${userLiked ? 'fill-current' : ''}`} />
               <span className="text-sm">{formatViews(video.likeCount)}</span>
             </button>
             
@@ -65,20 +117,19 @@ export function VideoInfo({ video }: VideoInfoProps) {
             <button
               onClick={handleDislike}
               disabled={!isAuthenticated}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-r-full transition-colors ${
-                userDisliked ? 'text-accent' : 'text-white hover:bg-gray-700'
+              className={`flex items-center space-x-2 px-4 py-2 rounded-r-full transition-all ${
+                userDisliked 
+                  ? 'text-white bg-red-600 hover:bg-red-700' 
+                  : 'text-white hover:bg-gray-700'
               } ${!isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              <ThumbsDown className="w-5 h-5" />
+              <ThumbsDown className={`w-5 h-5 ${userDisliked ? 'fill-current' : ''}`} />
             </button>
           </div>
 
           {/* Share */}
           <button 
-            onClick={() => {
-              navigator.clipboard.writeText(window.location.href)
-              // You could add a toast notification here
-            }}
+            onClick={handleShare}
             className="flex items-center space-x-2 px-4 py-2 bg-surface rounded-full text-white hover:bg-gray-700 transition-colors"
           >
             <Share className="w-5 h-5" />
@@ -86,15 +137,44 @@ export function VideoInfo({ video }: VideoInfoProps) {
           </button>
 
           {/* Download */}
-          <button className="flex items-center space-x-2 px-4 py-2 bg-surface rounded-full text-white hover:bg-gray-700 transition-colors">
+          <button 
+            onClick={handleDownload}
+            className="flex items-center space-x-2 px-4 py-2 bg-surface rounded-full text-white hover:bg-gray-700 transition-colors"
+          >
             <Download className="w-5 h-5" />
             <span className="text-sm hidden sm:inline">Скачать</span>
           </button>
 
           {/* Report */}
-          <button className="p-2 bg-surface rounded-full text-white hover:bg-gray-700 transition-colors">
-            <Flag className="w-5 h-5" />
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setShowMenu(!showMenu)}
+              className="p-2 bg-surface rounded-full text-white hover:bg-gray-700 transition-colors"
+            >
+              <MoreVertical className="w-5 h-5" />
+            </button>
+            
+            {showMenu && (
+              <div className="absolute right-0 top-12 bg-surface border border-gray-600 rounded-lg shadow-lg z-10 min-w-[150px]">
+                {canDelete && (
+                  <button
+                    onClick={handleDeleteVideo}
+                    className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-700 flex items-center space-x-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Удалить видео</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowMenu(false)}
+                  className="w-full px-4 py-2 text-left text-gray-400 hover:bg-gray-700 flex items-center space-x-2"
+                >
+                  <Flag className="w-4 h-4" />
+                  <span>Пожаловаться</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

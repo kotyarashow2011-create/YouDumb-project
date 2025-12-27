@@ -5,6 +5,7 @@ import { VideoInfo } from '@/components/video/VideoInfo'
 import { CommentSection } from '@/components/video/CommentSection'
 import { RecommendedVideos } from '@/components/video/RecommendedVideos'
 import { useVideo } from '@/hooks/useData'
+import { useAuth } from '@/hooks/useAuth'
 import { useEffect } from 'react'
 
 interface WatchPageProps {
@@ -15,13 +16,14 @@ interface WatchPageProps {
 
 export default function WatchPage({ params }: WatchPageProps) {
   const { video, loading, incrementViews } = useVideo(params.id)
+  const { user } = useAuth()
 
   useEffect(() => {
     if (video) {
-      // Increment view count when video loads
-      incrementViews()
+      // Increment view count when video loads and add to history
+      incrementViews(user?.id)
     }
-  }, [video, incrementViews])
+  }, [video, incrementViews, user?.id])
 
   if (loading) {
     return (

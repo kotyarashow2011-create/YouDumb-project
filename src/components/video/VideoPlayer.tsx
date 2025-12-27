@@ -115,6 +115,14 @@ export function VideoPlayer({ video }: VideoPlayerProps) {
 
   // Используем реальный URL видео
   const getVideoUrl = () => {
+    // Для стримов используем специальную обработку
+    if (video.isLive) {
+      // В реальном приложении здесь был бы WebRTC или HLS стрим
+      // Для демо используем заглушку
+      return 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+    }
+    
+    // Для обычных видео используем загруженный файл
     return video.videoUrl
   }
 
@@ -143,8 +151,17 @@ export function VideoPlayer({ video }: VideoPlayerProps) {
         loop={video.isLive}
         controls={false}
         preload="metadata"
+        onError={(e) => {
+          console.error('Ошибка воспроизведения видео:', e)
+          // Fallback для проблемных видео
+          if (videoRef.current) {
+            videoRef.current.src = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+          }
+        }}
       >
         <source src={getVideoUrl()} type="video/mp4" />
+        <source src={getVideoUrl()} type="video/webm" />
+        <source src={getVideoUrl()} type="video/ogg" />
         Ваш браузер не поддерживает воспроизведение видео.
       </video>
 
