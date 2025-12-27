@@ -225,9 +225,9 @@ export function VideoUploadForm() {
                   <Play className="w-8 h-8 text-accent" />
                 </div>
                 <div>
-                  <h3 className="text-white font-medium">{file.name}</h3>
+                  <h3 className="text-white font-medium">{file?.name}</h3>
                   <p className="text-gray-400 text-sm">
-                    {(file.size / (1024 * 1024)).toFixed(1)} MB
+                    {file ? (file.size / (1024 * 1024)).toFixed(1) : '0'} MB
                   </p>
                 </div>
               </div>
