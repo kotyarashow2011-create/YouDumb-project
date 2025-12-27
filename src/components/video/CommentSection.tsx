@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { ThumbsUp, ThumbsDown, Reply, MoreVertical } from 'lucide-react'
+import { ThumbsUp, ThumbsDown, Reply, MoreVertical, Trash2, Edit } from 'lucide-react'
 import { useComments } from '@/hooks/useData'
 import { useAuth } from '@/hooks/useAuth'
 import { Comment } from '@/lib/data'
 import { formatUploadDate } from '@/lib/utils'
+import { dataManager } from '@/lib/data'
 
 interface CommentSectionProps {
   videoId: string
@@ -150,7 +151,11 @@ export function CommentSection({ videoId }: CommentSectionProps) {
       ) : (
         <div className="space-y-6">
           {comments.map((comment) => (
-            <CommentItem key={comment.id} comment={comment} />
+            <CommentItem 
+              key={comment.id} 
+              comment={comment} 
+              videoId={videoId}
+            />
           ))}
         </div>
       )}
@@ -158,10 +163,39 @@ export function CommentSection({ videoId }: CommentSectionProps) {
   )
 }
 
-function CommentItem({ comment }: { comment: Comment }) {
+function CommentItem({ comment, videoId, onReply }: { 
+  comment: Comment
+  videoId?: string
+  onReply?: (parentId: string) => void 
+}) {
   const [showReplies, setShowReplies] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
   const [isDisliked, setIsDisliked] = useState(false)
+  const [showReplyForm, setShowReplyForm] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [showMenu, setShowMenu] = useState(false)
+  const { user, isAuthenticated } = useAuth()
+
+  const handleReply = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!replyText.trim() || !isAuthenticated || !user || !videoId) return
+
+    dataManager.addComment(replyText, videoId, user.id, comment.id)
+    setReplyText('')
+    setShowReplyForm(false)
+    setShowReplies(true)
+  }
+
+  const handleDelete = () => {
+    if (!user || comment.userId !== user.id) return
+    
+    if (confirm('Удалить комментарий?')) {
+      dataManager.deleteComment(comment.id)
+      setShowMenu(false)
+    }
+  }
+
+  const canDelete = isAuthenticated && user && comment.userId === user.id
 
   return (
     <div className="space-y-4">
@@ -216,17 +250,98 @@ function CommentItem({ comment }: { comment: Comment }) {
               <ThumbsDown className="w-4 h-4" />
             </button>
             
-            <button className="flex items-center space-x-1 text-gray-400 hover:text-white text-xs transition-colors">
+            <button 
+              onClick={() => setShowReplyForm(!showReplyForm)}
+              className="flex items-center space-x-1 text-gray-400 hover:text-white text-xs transition-colors"
+            >
               <Reply className="w-4 h-4" />
               <span>Ответить</span>
             </button>
             
-            <button className="text-gray-400 hover:text-white transition-colors">
-              <MoreVertical className="w-4 h-4" />
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowMenu(!showMenu)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+              
+              {showMenu && (
+                <div className="absolute right-0 top-6 bg-surface border border-gray-600 rounded-lg shadow-lg z-10 min-w-[120px]">
+                  {canDelete && (
+                    <button
+                      onClick={handleDelete}
+                      className="w-full px-3 py-2 text-left text-red-400 hover:bg-gray-700 flex items-center space-x-2 text-sm"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Удалить</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowMenu(false)}
+                    className="w-full px-3 py-2 text-left text-gray-400 hover:bg-gray-700 text-sm"
+                  >
+                    Пожаловаться
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Reply Form */}
+      {showReplyForm && isAuthenticated && (
+        <div className="ml-11 mt-3">
+          <form onSubmit={handleReply} className="flex space-x-3">
+            <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0">
+              {user?.avatarUrl ? (
+                <Image
+                  src={user.avatarUrl}
+                  alt={user.displayName}
+                  width={24}
+                  height={24}
+                  className="rounded-full"
+                />
+              ) : (
+                <span className="text-white text-xs font-medium">
+                  {user?.displayName.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+            
+            <div className="flex-1">
+              <textarea
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                placeholder="Добавьте ответ..."
+                className="w-full bg-transparent border-b border-gray-600 text-white placeholder-gray-400 py-2 resize-none focus:outline-none focus:border-accent text-sm"
+                rows={2}
+              />
+              
+              <div className="flex justify-end space-x-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowReplyForm(false)
+                    setReplyText('')
+                  }}
+                  className="px-3 py-1 text-gray-400 hover:text-white transition-colors text-sm"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  disabled={!replyText.trim()}
+                  className="px-3 py-1 bg-accent text-black rounded text-sm hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Ответить
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Replies */}
       {comment.replies && comment.replies.length > 0 && (
@@ -241,7 +356,11 @@ function CommentItem({ comment }: { comment: Comment }) {
           {showReplies && (
             <div className="space-y-4">
               {comment.replies.map((reply) => (
-                <CommentItem key={reply.id} comment={reply} />
+                <CommentItem 
+                  key={reply.id} 
+                  comment={reply} 
+                  videoId={videoId}
+                />
               ))}
             </div>
           )}

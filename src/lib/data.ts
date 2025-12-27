@@ -190,6 +190,30 @@ class DataManager {
     }
   }
 
+  deleteVideo(videoId: string, userId: string): boolean {
+    const videoIndex = this.videos.findIndex(v => v.id === videoId)
+    if (videoIndex === -1) return false
+
+    const video = this.videos[videoIndex]
+    
+    // Проверяем, что пользователь может удалить это видео
+    if (video.userId !== userId) return false
+
+    // Удаляем видео
+    this.videos.splice(videoIndex, 1)
+
+    // Удаляем все комментарии к этому видео
+    this.comments = this.comments.filter(c => c.videoId !== videoId)
+
+    // Удаляем лайки/дизлайки
+    this.userLikes = new Set(Array.from(this.userLikes).filter(like => !like.endsWith(`_${videoId}`)))
+    this.userDislikes = new Set(Array.from(this.userDislikes).filter(dislike => !dislike.endsWith(`_${videoId}`)))
+
+    this.saveData()
+    this.notifyListeners()
+    return true
+  }
+
   // Likes/Dislikes
   likeVideo(videoId: string, userId: string) {
     const video = this.videos.find(v => v.id === videoId)
@@ -310,6 +334,27 @@ class DataManager {
     return newComment
   }
 
+  deleteComment(commentId: string) {
+    // Удаляем комментарий и все его ответы
+    const deleteCommentAndReplies = (id: string) => {
+      // Находим все ответы на этот комментарий
+      const replies = this.comments.filter(c => c.parentId === id)
+      
+      // Рекурсивно удаляем ответы
+      replies.forEach(reply => deleteCommentAndReplies(reply.id))
+      
+      // Удаляем сам комментарий
+      const index = this.comments.findIndex(c => c.id === id)
+      if (index !== -1) {
+        this.comments.splice(index, 1)
+      }
+    }
+
+    deleteCommentAndReplies(commentId)
+    this.saveData()
+    this.notifyListeners()
+  }
+
   // Channels
   getChannelByUserId(userId: string): Channel | undefined {
     return this.channels.find(c => c.userId === userId)
@@ -336,6 +381,73 @@ class DataManager {
   // Subscriptions
   isSubscribed(subscriberId: string, channelId: string): boolean {
     return this.subscriptions.some(s => s.subscriberId === subscriberId && s.channelId === channelId)
+  }
+
+  // Подписка на пользователя (создаем канал если его нет)
+  subscribeToUser(subscriberId: string, targetUserId: string) {
+    if (subscriberId === targetUserId) return // Нельзя подписаться на себя
+
+    // Находим или создаем канал для пользователя
+    let channel = this.getChannelByUserId(targetUserId)
+    if (!channel) {
+      // Создаем канал автоматически
+      const targetUser = this.videos.find(v => v.userId === targetUserId)?.user
+      if (!targetUser) return
+
+      channel = this.createChannel(targetUserId, targetUser.displayName, `Канал пользователя ${targetUser.displayName}`)
+    }
+
+    if (this.isSubscribed(subscriberId, channel.id)) return
+
+    const subscription: Subscription = {
+      id: `sub_${Date.now()}`,
+      subscriberId,
+      channelId: channel.id,
+      createdAt: new Date()
+    }
+
+    this.subscriptions.push(subscription)
+    
+    // Update channel subscriber count
+    channel.subscriberCount++
+
+    // Отправляем уведомление
+    const subscriberUser = {
+      id: subscriberId,
+      username: `user_${subscriberId.slice(-4)}`,
+      displayName: `Пользователь ${subscriberId.slice(-4)}`,
+      avatarUrl: undefined
+    }
+    notificationManager.notifySubscribe(targetUserId, subscriberUser)
+
+    this.saveData()
+    this.notifyListeners()
+  }
+
+  // Отписка от пользователя
+  unsubscribeFromUser(subscriberId: string, targetUserId: string) {
+    const channel = this.getChannelByUserId(targetUserId)
+    if (!channel) return
+
+    const index = this.subscriptions.findIndex(s => s.subscriberId === subscriberId && s.channelId === channel.id)
+    if (index === -1) return
+
+    this.subscriptions.splice(index, 1)
+    
+    // Update channel subscriber count
+    if (channel.subscriberCount > 0) {
+      channel.subscriberCount--
+    }
+
+    this.saveData()
+    this.notifyListeners()
+  }
+
+  // Проверка подписки на пользователя
+  isSubscribedToUser(subscriberId: string, targetUserId: string): boolean {
+    const channel = this.getChannelByUserId(targetUserId)
+    if (!channel) return false
+    return this.isSubscribed(subscriberId, channel.id)
   }
 
   subscribeToChannel(subscriberId: string, channelId: string) {

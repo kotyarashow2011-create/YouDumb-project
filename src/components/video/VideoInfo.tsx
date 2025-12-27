@@ -7,6 +7,7 @@ import { formatViews, formatUploadDate } from '@/lib/utils'
 import { Video } from '@/lib/data'
 import { useAuth } from '@/hooks/useAuth'
 import { useVideo } from '@/hooks/useData'
+import { useSubscription } from '@/hooks/useSubscription'
 
 interface VideoInfoProps {
   video: Video
@@ -16,6 +17,7 @@ export function VideoInfo({ video }: VideoInfoProps) {
   const [showFullDescription, setShowFullDescription] = useState(false)
   const { user, isAuthenticated } = useAuth()
   const { likeVideo, dislikeVideo, isLiked, isDisliked } = useVideo(video.id)
+  const { isSubscribed, toggleSubscription } = useSubscription(user?.id, video.userId)
 
   const handleLike = () => {
     if (!isAuthenticated || !user) return
@@ -130,14 +132,24 @@ export function VideoInfo({ video }: VideoInfoProps) {
         </div>
         
         <button
-          disabled={!isAuthenticated}
+          onClick={toggleSubscription}
+          disabled={!isAuthenticated || user?.id === video.userId}
           className={`px-6 py-2 rounded-full font-medium transition-colors ${
-            !isAuthenticated 
+            !isAuthenticated || user?.id === video.userId
               ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-              : 'bg-accent text-black hover:bg-orange-600'
+              : isSubscribed
+                ? 'bg-gray-600 text-white hover:bg-gray-500'
+                : 'bg-accent text-black hover:bg-orange-600'
           }`}
         >
-          {isAuthenticated ? 'Подписаться' : 'Войдите для подписки'}
+          {!isAuthenticated 
+            ? 'Войдите для подписки' 
+            : user?.id === video.userId
+              ? 'Ваш канал'
+              : isSubscribed 
+                ? 'Отписаться' 
+                : 'Подписаться'
+          }
         </button>
       </div>
 

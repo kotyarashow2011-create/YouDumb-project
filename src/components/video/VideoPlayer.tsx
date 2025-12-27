@@ -113,25 +113,9 @@ export function VideoPlayer({ video }: VideoPlayerProps) {
     return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`
   }
 
-  // Добавляем реальные видео URL для демонстрации
+  // Используем реальный URL видео
   const getVideoUrl = () => {
-    if (video.isLive) {
-      // Для стримов используем тестовый поток
-      return 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
-    }
-    
-    // Для обычных видео используем тестовые видео
-    const testVideos = [
-      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4'
-    ]
-    
-    // Выбираем видео на основе ID для консистентности
-    const index = parseInt(video.id.slice(-1)) || 0
-    return testVideos[index % testVideos.length]
+    return video.videoUrl
   }
 
   return (

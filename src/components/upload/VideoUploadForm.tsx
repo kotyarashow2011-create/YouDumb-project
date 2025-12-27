@@ -104,27 +104,27 @@ export function VideoUploadForm() {
         if (prev >= 100) {
           clearInterval(interval)
           
-          // Реальные тестовые видео для демонстрации
-          const testVideos = [
-            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4'
-          ]
+          // Используем реальный загруженный файл или создаем URL для стрима
+          let videoUrl = ''
+          let thumbnailUrl = ''
           
-          const randomVideo = testVideos[Math.floor(Math.random() * testVideos.length)]
+          if (videoData.isLive) {
+            // Для стримов создаем placeholder URL (в реальном приложении здесь был бы streaming server)
+            videoUrl = `stream://${user.id}/${Date.now()}`
+            thumbnailUrl = `https://via.placeholder.com/320x180/ff0000/ffffff?text=LIVE+STREAM`
+          } else if (file) {
+            // Используем реальный загруженный файл
+            videoUrl = URL.createObjectURL(file)
+            // Создаем thumbnail из видео (в реальном приложении это делалось бы на сервере)
+            thumbnailUrl = `https://via.placeholder.com/320x180/1a1a1a/ffffff?text=${encodeURIComponent(videoData.title.slice(0, 20))}`
+          }
           
           // Create the video
           const newVideo = dataManager.addVideo({
             title: videoData.title,
             description: videoData.description,
-            thumbnailUrl: videoData.isLive 
-              ? `https://picsum.photos/320/180?random=${Date.now()}&overlay=LIVE`
-              : `https://picsum.photos/320/180?random=${Date.now()}`,
-            videoUrl: videoData.isLive 
-              ? randomVideo // Для стримов тоже используем реальное видео
-              : randomVideo,
+            thumbnailUrl,
+            videoUrl,
             duration: videoData.isLive ? 0 : Math.floor(Math.random() * 3600) + 60,
             userId: user.id,
             user: {
