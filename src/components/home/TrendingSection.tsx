@@ -1,6 +1,6 @@
 'use client'
 
-import { TrendingUp, Fire } from 'lucide-react'
+import { TrendingUp, Flame } from 'lucide-react'
 import { VideoCard } from '@/components/video/VideoCard'
 
 const trendingVideos = [
@@ -50,7 +50,7 @@ export function TrendingSection() {
     <section className="mb-8">
       <div className="flex items-center space-x-3 mb-6">
         <div className="flex items-center space-x-2">
-          <Fire className="w-6 h-6 text-accent" />
+          <Flame className="w-6 h-6 text-accent" />
           <h2 className="text-2xl font-semibold text-white">В тренде</h2>
         </div>
         <TrendingUp className="w-5 h-5 text-accent" />
